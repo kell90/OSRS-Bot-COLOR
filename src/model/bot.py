@@ -2,6 +2,7 @@
 A Bot is a base class for bot script models. It is abstract and cannot be instantiated. Many of the methods in this base class are
 pre-implemented and can be used by subclasses, or called by the controller. Code in this class should not be modified.
 """
+import copy
 import ctypes
 import platform
 import re
@@ -76,6 +77,61 @@ class BotStatus(Enum):
     STOPPED = 3
     CONFIGURING = 4
     CONFIGURED = 5
+
+class DropOrder(Enum):
+    """
+    Contains a list of slot indexes that define the order in which to drop.
+    This provides more natural drop orders than the default 'horizontal' order.
+    Slots are 0-indexed.
+    """
+    """
+        Left to right, row by row. https://imgur.com/CksPmKe
+        Drop order:
+         1  2  3  4
+         5  6  7  8
+         9 10 11 12
+        13 14 15 16
+        17 18 19 20
+        21 22 23 24
+        25 26 27 28
+    """
+    HORIZONTAL = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27]
+    """
+        Top to bottom, column by column. https://imgur.com/R42mEcg
+        Drop order:
+         1  8 15 22
+         2  9 16 23
+         3 10 17 24
+         4 11 18 25
+         5 12 19 26
+         6 13 20 27
+         7 14 21 28
+    """
+    VERTICAL = [0,4,8,12,16,20,24,1,5,9,13,17,21,25,2,6,10,14,18,22,26,3,7,11,15,19,23,27]
+    """
+        Top to bottom, bottom to top, column by column. https://imgur.com/oorxfE2
+        Drop order:
+         1 14 15 28
+         2 13 16 27
+         3 12 17 26
+         4 11 18 25
+         5 10 19 24
+         6  9 20 23
+         7  8 21 22
+    """
+    VERTICAL_ALTERNATING = [0,4,8,12,16,20,24,25,21,17,13,9,5,1,2,6,10,14,18,22,26,27,23,19,15,11,7,3]
+    """
+        Left to right, right to left, row by row. https://imgur.com/GWKZixY
+        Drop order:
+         1  2  3  4
+         8  7  6  5
+         9 10 11 12
+        16 15 14 13
+        17 18 19 20
+        24 23 22 21
+        25 26 27 28
+    """
+    HORIZONTAL_ALTERNATING = [0,1,2,3,7,6,5,4,8,9,10,11,15,14,13,12,16,17,18,19,23,22,21,20,24,25,26,27]
 
 
 class Bot(ABC):
@@ -265,27 +321,77 @@ class Bot(ABC):
         pag.keyUp("shift")
 
     def drop(self, slots: List[int]) -> None:
+        self.drop(slots, DropOrder.HORIZONTAL, False)
+
+    def drop(self, slots: List[int], drop_order: DropOrder, misclick_chance: bool) -> None:
         """
-        Shift-clicks inventory slots to drop items.
+        Shift-clicks inventory slots to drop items. 
         Args:
             slots: The indices of slots to drop.
+            drop_order: The overall order in which to try dropping slots
+            misclick_chance: If True provides a chance that a slot will not be dropped on the first pass.
+                             If a slot is missed then it will be reattempted after all the others have been attempted.
+                             Offers more human-like behavior if set.
         """
+        slots_to_drop = copy.deepcopy(slots)
+        probablity_to_miss = 0.01
+        probablity_to_drag = 0.01
+        probablity_to_click_between_slots = 0.02
+        is_dragging = False
         self.log_msg("Dropping items...")
         pag.keyDown("shift")
-        for i, slot in enumerate(self.win.inventory_slots):
-            if i not in slots:
-                continue
-            p = slot.random_point()
-            self.mouse.move_to(
-                (p[0], p[1]),
-                mouseSpeed="fastest",
-                knotsCount=1,
-                offsetBoundaryY=40,
-                offsetBoundaryX=40,
-                tween=pytweening.easeInOutQuad,
-            )
-            self.mouse.click()
+
+        while len(slots_to_drop) > 0:
+            for i in drop_order.value:
+                if i not in slots_to_drop:
+                    continue
+                slot = self.win.inventory_slots[i]
+
+                point_in_slot = True
+
+                # Chance to choose a point on the inventory grid between items
+                if misclick_chance and rd.random_chance(probability=probablity_to_click_between_slots):
+                    self.log_msg("Clicking grid not slot.")
+                    # Find bounds of the slot grid by increasing the slot bounds by 6 pixels horizontally, and 4 pixels vertically
+                    grid = Rectangle(left=slot.left - 3, top=slot.top - 2, width=slot.width + 6, height=slot.height + 4)
+
+                    # Find a point that is on the grid boundary by looking for a random point in the grid rectangle and relooking if the point lies in the slot
+                    while(point_in_slot):
+                        p = grid.random_point()
+                        point_in_slot = (p[0] >= slot.left and p[0] <= slot.left + slot.width and p[1] >= slot.top and p[1] <= slot.top + slot.height)
+                else:
+                    p = slot.random_point()
+
+                self.mouse.move_to(
+                    (p[0], p[1]),
+                    mouseSpeed="fastest",
+                    knotsCount=1,
+                    offsetBoundaryY=40,
+                    offsetBoundaryX=40,
+                    tween=pytweening.easeInOutQuad,
+                )
+                # Release button if previous iteration dragged to this position
+                if(is_dragging):
+                    pag.mouseUp()
+                    is_dragging = False
+
+                if misclick_chance and rd.random_chance(probability=probablity_to_miss):
+                    self.log_msg("Failing to click.")
+                    continue
+                elif misclick_chance and rd.random_chance(probability=probablity_to_drag):
+                    self.log_msg("Dragging instead of clicking")
+                    pag.mouseDown()
+                    is_dragging = True
+                else:
+                    self.mouse.click()
+                    # Only treat item as dropped if we clicked on the slot, not the grid
+                    if(point_in_slot):
+                        slots_to_drop.remove(i)
         pag.keyUp("shift")
+
+        # Release button if final iteration 
+        if(is_dragging):
+            pag.mouseUp()
 
     def friends_nearby(self) -> bool:
         """

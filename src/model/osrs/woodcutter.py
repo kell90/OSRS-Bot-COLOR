@@ -3,6 +3,7 @@ import time
 import utilities.api.item_ids as ids
 import utilities.color as clr
 import utilities.random_util as rd
+from model.bot import DropOrder
 from model.osrs.osrs_bot import OSRSBot
 from model.runelite_bot import BotStatus
 from utilities.api.morg_http_client import MorgHTTPSocket
@@ -137,7 +138,7 @@ class OSRSWoodcutter(OSRSBot):
         Since we made the `api` and `logs` variables assigned to `self`, we can access them from this function.
         """
         slots = api_s.get_inv_item_indices(ids.logs)
-        self.drop(slots)
+        self.drop(slots, DropOrder.VERTICAL_ALTERNATING, True)
         self.logs += len(slots)
         self.log_msg(f"Logs cut: ~{self.logs}")
         time.sleep(1)
