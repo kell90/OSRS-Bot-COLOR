@@ -132,8 +132,8 @@ class RuneLiteBot(Bot, metaclass=ABCMeta):
         # Locate Ground Items text
         if item_text := ocr.find_text(items, self.win.game_view, ocr.PLAIN_11, clr.PURPLE):
             for item in item_text:
-                item.set_rectangle_reference(self.win.game_view)
-            sorted_by_closest = sorted(item_text, key=Rectangle.distance_from_center)
+                item.set_parent_rectangle(self.win.game_view)
+            sorted_by_closest = sorted(item_text, key=Rectangle.distance_from_point)
             self.mouse.move_to(sorted_by_closest[0].get_center())
             for _ in range(5):
                 if self.mouseover_text(contains=["Take"] + items, color=[clr.OFF_WHITE, clr.OFF_ORANGE]):
@@ -197,7 +197,7 @@ class RuneLiteBot(Bot, metaclass=ABCMeta):
             print("No tagged NPCs found.")
             return None
         for obj in objs:
-            obj.set_rectangle_reference(self.win.game_view)
+            obj.set_parent_rectangle(self.win.game_view)
         # Sort shapes by distance from player
         objs = sorted(objs, key=RuneLiteObject.distance_from_rect_center)
         if include_in_combat:
@@ -220,7 +220,7 @@ class RuneLiteBot(Bot, metaclass=ABCMeta):
         isolated_colors = clr.isolate_colors(img_rect, color)
         objs = rcv.extract_objects(isolated_colors)
         for obj in objs:
-            obj.set_rectangle_reference(rect)
+            obj.set_parent_rectangle(rect)
         return objs
 
     def get_nearest_tag(self, color: clr.Color) -> RuneLiteObject:
