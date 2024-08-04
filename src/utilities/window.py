@@ -41,6 +41,7 @@ class Window:
     inventory_slots: List[Rectangle] = []  # https://i.imgur.com/gBwhAwE.png
     spellbook_normal: List[Rectangle] = []  # https://i.imgur.com/vkKAfV5.png
     prayers: List[Rectangle] = []  # https://i.imgur.com/KRmC3YB.png
+    skill_boxes: List[Rectangle] = [] # https://i.imgur.com/Ipm0BWr.png
 
     # Chat Area
     chat: Rectangle = None  # https://i.imgur.com/u544ouI.png
@@ -172,6 +173,7 @@ class Window:
             self.__locate_inv_slots(cp)
             self.__locate_prayers(cp)
             self.__locate_spells(cp)
+            self.__locate_skill_boxes(cp)
             self.control_panel = cp
             return True
         print("Window.__locate_control_panel(): Failed to find control panel.")
@@ -192,6 +194,21 @@ class Window:
                 x += slot_w + gap
             y = 303  # 303px from top for second row
             slot_h = 28  # slightly taller tab Rectangles for second row
+
+    def __locate_skill_boxes(self, cp: Rectangle) -> None:
+        """
+        Creates Rectangles for each skill box relative to the control panel, storing it in the class property.
+        """
+        self.skill_boxes = []
+        slot_w, slot_h = 59, 29 # dimensions of a skill box
+        gap_x, gap_y = 2, 3 # pixel gap between skills
+        y = 38 + cp.top 
+        for _ in range(8): 
+            x = 27 + cp.left 
+            for _ in range(3):
+                self.skill_boxes.append(Rectangle(left=x, top=y, width=slot_w, height=slot_h))
+                x += slot_w + gap_x
+            y += slot_h + gap_y
 
     def __locate_inv_slots(self, cp: Rectangle) -> None:
         """
