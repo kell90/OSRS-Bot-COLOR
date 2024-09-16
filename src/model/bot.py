@@ -489,6 +489,14 @@ class Bot(ABC):
             time.sleep(duration)
             pag.keyUp(direction)
 
+        # if a single direction is 0 avoid pressing that key for any length of time so we don't nudge the camera over
+        if vertical == 0:
+            keypress(direction_h, sleep_h)
+            return
+        elif horizontal == 0:
+            keypress(direction_v, sleep_v)
+            return
+            
         thread_h = threading.Thread(target=keypress, args=(direction_h, sleep_h), daemon=True)
         thread_v = threading.Thread(target=keypress, args=(direction_v, sleep_v), daemon=True)
         delay = rd.fancy_normal_sample(0, max(sleep_h, sleep_v))
