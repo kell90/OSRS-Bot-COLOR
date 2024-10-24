@@ -26,6 +26,7 @@ import utilities.random_util as rd
 from utilities.geometry import Point, Rectangle
 from utilities.mouse import Mouse
 from utilities.options_builder import OptionsBuilder
+from utilities.spellbooks import Spellbooks
 from utilities.window import Window, WindowInitializationError
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -596,3 +597,15 @@ class Bot(ABC):
             self.mouse.click()
         else:
             self.log_msg("Run is already off.")
+
+    def check_current_spellbook(self) -> Spellbooks:
+        """
+        Searches the main client screen to find which spellbook we're currently using
+        Returns:
+            The spellbook we're currently using, else None
+        """
+        for spellbook in Spellbooks:
+            if (imsearch.search_img_in_rect(imsearch.BOT_IMAGES.joinpath("spellbooks", spellbook.value), self.win.rectangle())):
+                return spellbook
+            
+        return None
